@@ -9,6 +9,7 @@
 8.    If it asks you to choose a class with a main method, you want the battlecode client
 
 Note: If you are unable to find the Main - battlecode.client then you need to update the buildpath. To do this:
+
 1. Right click on Project
 2. Select "Build Path"
 3. Select "Configure Build Path"
