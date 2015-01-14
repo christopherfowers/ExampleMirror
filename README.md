@@ -21,3 +21,6 @@ Note: If you are unable to find the Main - battlecode.client then you need to up
   4. Select the Jar and click "Open"
 6. Click OK
 7. Attmept steps 7 & 8 from the first portion of this readme
+
+
+Details for mechanics can be found at: https://github.com/battlecode/battlecode-server/blob/2015-1.0.3/specs.md
