@@ -1,5 +1,8 @@
 package team912.components;
 
+import java.util.List;
+
+import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 
 public interface Communicator {
@@ -11,16 +14,24 @@ public interface Communicator {
 	/**
 	 * 
 	 * @return the ids of all squad members
+	 * @throws GameActionException 
 	 */
-	int[] getSquadMembers();
+	List<Integer> getSquadMembers() throws GameActionException;
 	
 	/**
 	 * adds the indicated bot to the current unit's squad
 	 * 
 	 * overrides any previous squad assignment
-	 * @param robotId
+	 * @param unitId
 	 */
-	void addSquadMember(int robotId);
+	void addSquadMember(int unitId);
+	
+	/**
+	 * 
+	 * @param unitId
+	 * @return the status for the specified unit
+	 */
+	UnitStatus getStatus(int unitId);
 	
 	/**
 	 * A method to set this unit's status
@@ -52,10 +63,10 @@ public interface Communicator {
 	
 	/**
 	 * issues a command to the selected robot
-	 * @param robotId
+	 * @param unitId
 	 * @param command
 	 */
-	void issueCommand(int robotId, Command command);
+	void issueCommand(int unitId, Command command);
 	
 	/**
 	 * 
