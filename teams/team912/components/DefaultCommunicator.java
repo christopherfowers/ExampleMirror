@@ -7,9 +7,8 @@ import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
 
-class DefaultCommunicator implements Communicator {
+class DefaultCommunicator extends Component implements Communicator {
 
-	private RobotController control;
 	private int unitBlockStart;
 	
 	private final int RESERVED_CHANNELS = 20;
@@ -30,7 +29,7 @@ class DefaultCommunicator implements Communicator {
 	private final int SQUAD_BLOCK_WIDTH = 20;
 
 	public DefaultCommunicator(RobotController control) {
-		this.control = control;
+		super(control);
 		init();
 	}
 	
@@ -40,7 +39,7 @@ class DefaultCommunicator implements Communicator {
 	private void init(){
 		// TODO ensure sufficient bytecode is available to complete block allocation
 		try {
-			unitBlockStart = findOrAllocateBlock(control.getID());
+			unitBlockStart = findOrAllocateBlock(getControl().getID());
 		} catch (GameActionException e) {
 			System.out.println("COMMUNICATOR EXPLODED VIOLENTLY");
 			e.printStackTrace();
@@ -49,17 +48,17 @@ class DefaultCommunicator implements Communicator {
 	
 	// finds the current unit's squad block
 	private int getMySquadId() throws GameActionException{
-		return control.readBroadcast(unitBlockStart + OFFSET_SQUAD_ID);
+		return read(unitBlockStart + OFFSET_SQUAD_ID);
 	}
 	
 	// finds an existing block for the specified unit
 	// if a block does not exist, allocates one
 	private int findOrAllocateBlock(int unitId) throws GameActionException{
 		// checks the number of allocated blocks 
-		int allocatedBlocks = control.readBroadcast(Channels.UnitBlockAllocationCount);
+		int allocatedBlocks = getControl().readBroadcast(Channels.UnitBlockAllocationCount);
 		for(int i = 0; i < allocatedBlocks; i++){
 			int blockStart = i * UNIT_BLOCK_WIDTH + RESERVED_CHANNELS;
-			int id = control.readBroadcast(blockStart + OFFSET_UNITID);
+			int id = getControl().readBroadcast(blockStart + OFFSET_UNITID);
 			if(id == unitId){
 				return blockStart;
 			}
@@ -67,21 +66,21 @@ class DefaultCommunicator implements Communicator {
 		// if we get here, there is no allocated block and we need to allocate
 		
 		// increments allocated blocks to avoid overwrite
-		control.broadcast(Channels.UnitBlockAllocationCount, allocatedBlocks + 1);
+		send(Channels.UnitBlockAllocationCount, allocatedBlocks + 1);
 		unitBlockStart = allocatedBlocks * UNIT_BLOCK_WIDTH + RESERVED_CHANNELS;
-		control.broadcast(unitBlockStart + OFFSET_UNITID, unitId);
+		send(unitBlockStart + OFFSET_UNITID, unitId);
 		return unitBlockStart;
 	}
 
 	@Override
 	public void createSquad() {
 		try{
-			int allocatedBlocks = control.readBroadcast(Channels.SquadBlockAllocationCount);
-			control.broadcast(Channels.SquadBlockAllocationCount, allocatedBlocks + 1);
+			int allocatedBlocks = getControl().readBroadcast(Channels.SquadBlockAllocationCount);
+			getControl().broadcast(Channels.SquadBlockAllocationCount, allocatedBlocks + 1);
 			int squadBlockStart = allocatedBlocks * SQUAD_BLOCK_WIDTH + SQUAD_BLOCK_START;
 			// sets the newly created squad's leader to this unit
-			control.broadcast(squadBlockStart + OFFSET_SQUAD_LEADER, control.getID());
-			control.broadcast(unitBlockStart + OFFSET_SQUAD_ID, squadBlockStart);
+			send(squadBlockStart + OFFSET_SQUAD_LEADER, getControl().getID());
+			send(unitBlockStart + OFFSET_SQUAD_ID, squadBlockStart);
 		} catch (GameActionException e){
 			System.out.println("This should never happen");
 			e.printStackTrace();
@@ -94,13 +93,13 @@ class DefaultCommunicator implements Communicator {
 		// will allow this "squadMember" data to be safely stored
 		// and only renewed when the version increments
 		List<Integer> squadMembers = new ArrayList<Integer>();
-		int allocatedBlocks = control.readBroadcast(Channels.UnitBlockAllocationCount);
+		int allocatedBlocks = read(Channels.UnitBlockAllocationCount);
 		int mySquad = getMySquadId();
 		for(int start = 0; start <= allocatedBlocks; start++) {
 			int unitStart = start * UNIT_BLOCK_WIDTH + RESERVED_CHANNELS;
 			// if the two units are in the same squad
-			if(control.readBroadcast(unitStart + OFFSET_SQUAD_ID) == mySquad){
-				squadMembers.add(control.readBroadcast(unitStart + OFFSET_UNITID));
+			if(read(unitStart + OFFSET_SQUAD_ID) == mySquad){
+				squadMembers.add(read(unitStart + OFFSET_UNITID));
 			}
 		}
 		return squadMembers;
@@ -110,7 +109,7 @@ class DefaultCommunicator implements Communicator {
 	public void addSquadMember(int robotId) {
 		try {
 			int memberBlock = findOrAllocateBlock(robotId);
-			control.broadcast(memberBlock + OFFSET_SQUAD_ID, getMySquadId());
+			send(memberBlock + OFFSET_SQUAD_ID, getMySquadId());
 		} catch (GameActionException e) {
 			System.out.println("FAILED TO ADD SQUAD MEMBER");
 			e.printStackTrace();
@@ -120,7 +119,7 @@ class DefaultCommunicator implements Communicator {
 	@Override
 	public void setMyStatus(UnitStatus status) {
 		try {
-			control.broadcast(unitBlockStart + OFFSET_STATUS, status.ordinal());
+			send(unitBlockStart + OFFSET_STATUS, status.ordinal());
 		} catch (GameActionException e) {
 			System.out.println("FAILED TO SET STATUS");
 			e.printStackTrace();
@@ -131,8 +130,8 @@ class DefaultCommunicator implements Communicator {
 	public MapLocation getMyMoveTarget() {
 		MapLocation target = null;
 		try{
-			int x = control.readBroadcast(unitBlockStart + OFFSET_MOVE_TARGET_X);
-			int y = control.readBroadcast(unitBlockStart + OFFSET_MOVE_TARGET_Y);
+			int x = read(unitBlockStart + OFFSET_MOVE_TARGET_X);
+			int y = read(unitBlockStart + OFFSET_MOVE_TARGET_Y);
 			if(x != 0 || y != 0){
 				target = new MapLocation(x, y);
 			}
@@ -147,8 +146,8 @@ class DefaultCommunicator implements Communicator {
 	public void setMoveTarget(int robotId, MapLocation target) {
 		try {
 			int robotBlock = findOrAllocateBlock(robotId);
-			control.broadcast(robotBlock + OFFSET_MOVE_TARGET_Y, target.y);
-			control.broadcast(robotBlock + OFFSET_MOVE_TARGET_X, target.x);
+			send(robotBlock + OFFSET_MOVE_TARGET_Y, target.y);
+			send(robotBlock + OFFSET_MOVE_TARGET_X, target.x);
 		} catch (GameActionException e){
 			System.out.println("FAILED TO SET MOVE TARGET");
 			e.printStackTrace();
@@ -170,7 +169,7 @@ class DefaultCommunicator implements Communicator {
 	public void issueCommand(int unitId, Command command) {
 		try {
 			int unitBlock = findOrAllocateBlock(unitId);
-			control.broadcast(unitBlock + OFFSET_COMMAND, command.ordinal());
+			send(unitBlock + OFFSET_COMMAND, command.ordinal());
 		} catch (GameActionException e) {
 			System.out.println("FAILED TO ISSUE COMMAND");
 			e.printStackTrace();
@@ -180,7 +179,7 @@ class DefaultCommunicator implements Communicator {
 	@Override
 	public Command getOrders() {
 		try {
-			int commandOrdinal = control.readBroadcast(unitBlockStart + OFFSET_COMMAND);
+			int commandOrdinal = read(unitBlockStart + OFFSET_COMMAND);
 			return Command.values()[commandOrdinal];
 		} catch (GameActionException e){
 			System.out.println("FAILED TO GET COMMAND");
@@ -192,7 +191,7 @@ class DefaultCommunicator implements Communicator {
 	@Override
 	public UnitStatus getStatus(int unitId) {
 		try{
-			int statusOrdinal = control.readBroadcast(unitBlockStart + OFFSET_STATUS);
+			int statusOrdinal = read(unitBlockStart + OFFSET_STATUS);
 			return UnitStatus.values()[statusOrdinal];
 		} catch (GameActionException e){
 			System.out.println("FAILED TO GET STATUS");
@@ -200,5 +199,14 @@ class DefaultCommunicator implements Communicator {
 		}
 		return null;
 	}
+	
+	private void send(int channel, int data) throws GameActionException{
+		getControl().broadcast(channel, data);
+	}
+	
+	private int read(int channel) throws GameActionException{
+		return getControl().readBroadcast(channel);
+	}
 
+	
 }
