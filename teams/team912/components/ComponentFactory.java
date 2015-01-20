@@ -10,8 +10,7 @@ public class ComponentFactory {
 		return new Pather(control);
 	}
 	public static Communicator getCommunicator(RobotController control){
-		// TODO
-		return null;
+		return new DefaultCommunicator(control);
 	}
 	public static Utility getUtility(RobotController control){
 		return new Utility(control);
